@@ -82,6 +82,9 @@ android {
 }
 
 dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:5.18.0'
+
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'androidx.core:core:1.18.0'
     implementation 'androidx.preference:preference:1.2.1'

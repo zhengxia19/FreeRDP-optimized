@@ -244,10 +244,10 @@ public class SessionInputManager
 			return false;
 
 		final float vScroll = e.getAxisValue(MotionEvent.AXIS_VSCROLL);
-		if (vScroll < 0)
-			LibFreeRDP.sendCursorEvent(instance, 0, 0, Mouse.getScrollEvent(context, false));
-		else if (vScroll > 0)
-			LibFreeRDP.sendCursorEvent(instance, 0, 0, Mouse.getScrollEvent(context, true));
+		if (vScroll != 0)
+			LibFreeRDP.sendCursorEvent(
+			    instance, 0, 0,
+			    Mouse.getScrollEvent(context, Mouse.isPhysicalScrollDown(vScroll)));
 		return true;
 	}
 

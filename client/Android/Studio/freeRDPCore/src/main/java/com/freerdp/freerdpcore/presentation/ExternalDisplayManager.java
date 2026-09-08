@@ -14,11 +14,14 @@ import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.Intent;
 import android.hardware.display.DisplayManager;
+import android.os.Build;
 import android.view.Display;
 
 import androidx.appcompat.app.AlertDialog;
 
 import com.freerdp.freerdpcore.R;
+
+import java.util.ArrayList;
 
 class ExternalDisplayManager
 {
@@ -33,15 +36,25 @@ class ExternalDisplayManager
 
 	void launchSessionWithDisplayPicker(String refStr)
 	{
-		Display[] secondary = getSecondaryDisplays();
+		Display current = activity.getWindowManager().getDefaultDisplay();
+		int currentDisplayId = current.getDisplayId();
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+		{
+			launchSessionOnDisplay(refStr, currentDisplayId);
+			return;
+		}
+
+		Display[] secondary = getSecondaryDisplays(currentDisplayId);
 		if (secondary.length == 0)
 		{
-			launchSessionOnDisplay(refStr, Display.DEFAULT_DISPLAY);
+			launchSessionOnDisplay(refStr, currentDisplayId);
 			return;
 		}
 
 		String[] labels = new String[1 + secondary.length];
-		labels[0] = activity.getString(R.string.display_main_screen);
+		labels[0] = currentDisplayId == Display.DEFAULT_DISPLAY
+		                ? activity.getString(R.string.display_main_screen)
+		                : current.getName();
 		for (int i = 0; i < secondary.length; i++)
 			labels[i + 1] = secondary[i].getName();
 
@@ -49,7 +62,7 @@ class ExternalDisplayManager
 		    .setTitle(R.string.select_display_title)
 		    .setItems(labels,
 		              (d, which) -> {
-			              int id = (which == 0) ? Display.DEFAULT_DISPLAY
+			              int id = (which == 0) ? currentDisplayId
 			                                    : secondary[which - 1].getDisplayId();
 			              launchSessionOnDisplay(refStr, id);
 		              })
@@ -61,13 +74,28 @@ class ExternalDisplayManager
 		Intent intent = new Intent(activity, SessionActivity.class);
 		intent.putExtra(SessionActivity.PARAM_CONNECTION_REFERENCE, refStr);
 		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-		ActivityOptions opts = ActivityOptions.makeBasic();
-		opts.setLaunchDisplayId(displayId);
-		activity.startActivity(intent, opts.toBundle());
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+		{
+			ActivityOptions opts = ActivityOptions.makeBasic();
+			opts.setLaunchDisplayId(displayId);
+			activity.startActivity(intent, opts.toBundle());
+		}
+		else
+		{
+			activity.startActivity(intent);
+		}
 	}
 
-	private Display[] getSecondaryDisplays()
+	private Display[] getSecondaryDisplays(int currentDisplayId)
 	{
-		return displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
+		ArrayList<Display> available = new ArrayList<>();
+		for (Display display :
+		     displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION))
+		{
+			if (display.getDisplayId() != currentDisplayId && display.isValid() &&
+			    display.getState() != Display.STATE_OFF)
+				available.add(display);
+		}
+		return available.toArray(new Display[0]);
 	}
 }

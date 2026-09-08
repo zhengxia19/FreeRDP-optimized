@@ -3,3 +3,9 @@ freeRDPCore/src/main/cpp/external/
 .gradle/
 .idea/
 freeRDPCore/.cxx/
+
+# Local SDK paths and release signing credentials
+local.properties
+release.properties
+*.jks
+*.keystore

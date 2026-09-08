@@ -54,6 +54,12 @@ public class Mouse
 		return PTRFLAGS_MOVE;
 	}
 
+	public static boolean isPhysicalScrollDown(float axisValue)
+	{
+		// Android AXIS_VSCROLL is positive for up and negative for down.
+		return axisValue < 0;
+	}
+
 	public static int getScrollEvent(Context context, boolean down)
 	{
 		int flags = PTRFLAGS_WHEEL;

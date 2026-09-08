@@ -218,6 +218,8 @@ public class KeyboardMapper
 	private static boolean initialized = false;
 	private KeyProcessingListener listener = null;
 	private boolean shiftPressed = false;
+	private boolean physicalLeftShiftPressed = false;
+	private boolean physicalRightShiftPressed = false;
 	private boolean ctrlPressed = false;
 	private boolean altPressed = false;
 	private boolean winPressed = false;
@@ -281,8 +283,7 @@ public class KeyboardMapper
 		keymapAndroid[KeyEvent.KEYCODE_TAB] = VK_TAB;
 		keymapAndroid[KeyEvent.KEYCODE_ESCAPE] = VK_ESCAPE;
 		keymapAndroid[KeyEvent.KEYCODE_CAPS_LOCK] = VK_CAPITAL;
-		//		keymapAndroid[KeyEvent.KEYCODE_SHIFT_LEFT] = VK_LSHIFT;
-		//		keymapAndroid[KeyEvent.KEYCODE_SHIFT_RIGHT] = VK_RSHIFT;
+		// Physical Shift is handled separately to preserve its down/up lifetime.
 
 		keymapAndroid[KeyEvent.KEYCODE_DPAD_DOWN] = VK_DOWN | VK_EXT_KEY;
 		keymapAndroid[KeyEvent.KEYCODE_DPAD_LEFT] = VK_LEFT | VK_EXT_KEY;
@@ -445,6 +446,9 @@ public class KeyboardMapper
 	public void reset(KeyProcessingListener listener)
 	{
 		shiftPressed = false;
+		physicalLeftShiftPressed = false;
+		physicalRightShiftPressed = false;
+		resetShiftToggleHistory();
 		ctrlPressed = false;
 		altPressed = false;
 		winPressed = false;
@@ -460,9 +464,17 @@ public class KeyboardMapper
 
 	public boolean processAndroidKeyEvent(KeyEvent event)
 	{
+		int keycode = event.getKeyCode();
+		if ((keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) &&
+		    (event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.ACTION_UP))
+		{
+			processPhysicalShift(keycode, event.getAction() == KeyEvent.ACTION_DOWN);
+			return true;
+		}
+
 		switch (event.getAction())
 		{
-			// we only process down events
+			// Ordinary keys are sent as a down/up pair on ACTION_DOWN.
 			case KeyEvent.ACTION_UP:
 			{
 				if (event.getKeyCode() == KeyEvent.KEYCODE_META_LEFT ||
@@ -510,7 +522,8 @@ public class KeyboardMapper
 					boolean sendCtrl = !ctrlPressed && event.isCtrlPressed();
 					boolean sendAlt = !altPressed && event.isAltPressed();
 					boolean sendWin = !winPressed && isWinKeyDown;
-					boolean sendShift = !shiftPressed && event.isShiftPressed();
+					boolean sendShift = !shiftPressed && !physicalLeftShiftPressed &&
+					                    !physicalRightShiftPressed && event.isShiftPressed();
 
 					if (sendCtrl)
 						listener.processVirtualKey(VK_LCONTROL, true);
@@ -559,6 +572,26 @@ public class KeyboardMapper
 				break;
 		}
 		return false;
+	}
+
+	private void processPhysicalShift(int keycode, boolean down)
+	{
+		if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT)
+		{
+			if (physicalLeftShiftPressed == down)
+				return;
+			physicalLeftShiftPressed = down;
+			// The toolbar and physical left Shift share the same remote key.
+			if (!shiftPressed)
+				listener.processVirtualKey(VK_LSHIFT, down);
+		}
+		else
+		{
+			if (physicalRightShiftPressed == down)
+				return;
+			physicalRightShiftPressed = down;
+			listener.processVirtualKey(VK_RSHIFT, down);
+		}
 	}
 
 	public void processCustomKeyEvent(int keycode)
@@ -697,7 +730,8 @@ public class KeyboardMapper
 				{
 					isShiftLocked = false;
 					shiftPressed = !shiftPressed;
-					listener.processVirtualKey(VK_LSHIFT, shiftPressed);
+					if (!physicalLeftShiftPressed)
+						listener.processVirtualKey(VK_LSHIFT, shiftPressed);
 				}
 				else
 					isShiftLocked = true;
@@ -745,14 +779,28 @@ public class KeyboardMapper
 
 	public void clearlAllModifiers()
 	{
+		processPhysicalShift(KeyEvent.KEYCODE_SHIFT_LEFT, false);
+		processPhysicalShift(KeyEvent.KEYCODE_SHIFT_RIGHT, false);
 		resetModifierKeysAfterInput(true);
+		resetShiftToggleHistory();
+	}
+
+	private void resetShiftToggleHistory()
+	{
+		isShiftLocked = false;
+		if (lastModifierKeyCode == VK_LSHIFT)
+		{
+			lastModifierKeyCode = -1;
+			lastModifierTime = 0;
+		}
 	}
 
 	private void resetModifierKeysAfterInput(boolean force)
 	{
 		if (shiftPressed && (!isShiftLocked || force))
 		{
-			listener.processVirtualKey(VK_LSHIFT, false);
+			if (!physicalLeftShiftPressed)
+				listener.processVirtualKey(VK_LSHIFT, false);
 			shiftPressed = false;
 		}
 		if (ctrlPressed && (!isCtrlLocked || force))

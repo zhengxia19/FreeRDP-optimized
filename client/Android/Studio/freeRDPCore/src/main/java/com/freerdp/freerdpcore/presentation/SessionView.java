@@ -35,6 +35,7 @@ import androidx.annotation.NonNull;
 import com.freerdp.freerdpcore.application.SessionState;
 import com.freerdp.freerdpcore.utils.DoubleGestureDetector;
 import com.freerdp.freerdpcore.utils.GestureDetector;
+import com.freerdp.freerdpcore.utils.Mouse;
 
 import java.util.Stack;
 
@@ -365,7 +366,7 @@ public class SessionView extends View
 			float vScroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
 			float hScroll = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
 			if (vScroll != 0)
-				sessionViewListener.onSessionViewScroll(vScroll > 0);
+				sessionViewListener.onSessionViewScroll(Mouse.isPhysicalScrollDown(vScroll));
 			if (hScroll != 0)
 				sessionViewListener.onSessionViewHScroll(hScroll > 0);
 			return true;
